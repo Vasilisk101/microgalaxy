@@ -13,7 +13,7 @@ export async function perform(core, recordsFor, input, pause) {
   const { task, regionId, year } = input;
   let state;
   if (task === 'example') {
-    state = core.createWorld(input.seed, {era: 'industrial'});
+    state = core.createWorld(input.seed, {era: input.era || 'industrial'});
   } else if (task === 'year') {
     if (!canVisit(input.world, year)) throw new Error('Для этой даты в архиве нет подтверждённого состояния места.');
     if (year === input.world.year) return {world:input.world};

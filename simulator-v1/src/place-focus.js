@@ -1,6 +1,7 @@
 const PlaceFocus = (() => {
   let host, controls, observer, canvas, selected, selectedYear, sourceOpen = false;
   let historyLimit = 5, compareYear = null, sceneKey = '', lastScene = null;
+  let detail = 'region', signals = false, selectedObject = null, selectedAnchor = null;
   let previousFocus;
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const state = () => controls?.get?.() || {};
@@ -27,21 +28,40 @@ const PlaceFocus = (() => {
   function sceneCaption(s) {
     const pop = new Intl.NumberFormat('ru-RU').format(s.region.population);
     const project = s.project;
-    if (!project) return 'Жители региона · '+pop;
+    if (!project) return s.region.population?'Жители региона · '+pop:'Постоянных жителей нет';
     const purpose = {passage:'переправа',irrigation:'водоснабжение хозяйств'}[project.purpose];
     const state = {building:'Строится',paused:'Работы приостановлены',completed:'Завершено',dismantled:'Разобрано'}[project.status];
     return [state,purpose].filter(Boolean).join(' · ') || 'Работы на реке';
   }
   function drawScene() {
     if (!host || !canvas || !lastScene || typeof PlaceLandscape === 'undefined') return;
-    const {world, region, project, basin} = lastScene;
-    if (world && region) PlaceLandscape.draw(canvas, world, region, {project, basin, year:world.year});
+    const {world,region,project,basin,settlement}=lastScene;
+    if (world && region) PlaceLandscape.draw(canvas, world, region, {
+      project, basin, year:world.year, settlement, detail, signals, selectedId:selectedObject, anchor:selectedAnchor
+    });
   }
   function ensureScene(s) {
     const region = s.region, world = s.world;
-    const key = JSON.stringify([world?.seed, world?.year, region?.id, s.project, s.basin]);
-    lastScene = {world, region, project:s.project, basin:s.basin};
+    const key = JSON.stringify([world?.seed, world?.year, region?.id, s.settlement, s.project, detail, signals, selectedObject, selectedAnchor]);
+    lastScene = {world, region, project:s.project, basin:s.basin, settlement:s.settlement};
     if (key !== sceneKey) {sceneKey = key; drawScene();}
+  }
+  function sceneControls(){
+    return '<div class="pf-scene-controls"><div role="group" aria-label="Масштаб местности">'+
+      '<button type="button" data-pf="detail" data-id="region" aria-pressed="'+(detail==='region')+'">Общий вид</button>'+
+      '<button type="button" data-pf="detail" data-id="district" aria-pressed="'+(detail==='district')+'">Крупный план</button></div>'+
+      '<button type="button" data-pf="signals" aria-pressed="'+signals+'">Сигналы</button></div>';
+  }
+  function objectCard(s,records){
+    const objects=s.settlement?.objects||[];
+    const current=objects.find(o=>o.id===selectedObject);
+    const options=objects.map(o=>'<option value="'+escapeHtml(o.id)+'"'+(current===o?' selected':'')+'>'+escapeHtml(o.label)+'</option>').join('');
+    const sourceLink=current?.kind==='project'&&projectRecord(s,records)
+      ? '<button type="button" data-pf="project">Запись о сооружении →</button>' : '';
+    return '<section class="pf-object"><label>Объект на местности<select data-pf="object">'+
+      '<option value="">Выбрать на сцене или из списка</option>'+options+'</select></label>'+
+      '<div class="pf-object-note" aria-live="polite">'+(current?'<span>Состояние на год '+escapeHtml(s.world.year)+'</span>'+
+      '<p>'+escapeHtml(current.evidence)+'</p>'+sourceLink:'')+'</div></section>';
   }
   function recordMarkup(record, s) {
     if (!record) return '<p>К этому году записей о месте нет.</p>';
@@ -60,12 +80,13 @@ const PlaceFocus = (() => {
     const options = dates.map(y => '<option value="'+y+'"'+(y===compareYear?' selected':'')+'>'+y+(y===live?' · настоящее':'')+'</option>').join('');
     const list = records.slice(0, historyLimit).map(r => '<li><button type="button" data-pf="record" data-id="'+escapeHtml(r.id)+'" aria-pressed="'+(r === record)+'"><time>'+escapeHtml(r.year)+'</time> '+escapeHtml(r.title || 'Запись')+'</button></li>').join('');
     const more = records.length > historyLimit ? '<button type="button" data-pf="more">Показать ещё записи ('+(records.length-historyLimit)+')</button>' : '';
-    const label = s.label || s.region?.settlement?.name || s.region?.name || s.region?.id || 'Выбранное место';
-    const projectButton = projectRecord(s, records) ? '<button type="button" class="pf-project" data-pf="project">Сооружение →</button>' : '';
+    const label = s.region?.settlement?.name || s.label || s.region?.id || 'Выбранное место';
+    const location = s.label?.startsWith(label+' (') ? ' · '+s.label.slice(label.length+2).replace(/\)$/,'') : '';
     return '<section class="place-focus" aria-label="Наблюдение за местом">'+
-      '<header class="pf-header"><button type="button" data-pf="close">← '+(s.demo?'К обсерватории':'К планете')+'</button><div class="pf-heading"><span>'+escapeHtml(world.seed || 'Мир')+'</span><h2>'+escapeHtml(label)+'</h2></div><div class="pf-year">Год <strong>'+escapeHtml(year ?? '—')+'</strong><small>'+(year === live ? 'Настоящее' : 'Исторический срез · настоящее '+escapeHtml(live))+'</small></div></header>'+
-      '<div class="pf-main"><div class="pf-scene"><div class="pf-canvas-slot"></div><p class="pf-scene-data">'+escapeHtml(sceneCaption(s))+'</p><p class="pf-scene-label">Реконструкция места · детали условны</p>'+projectButton+'</div>'+
-      '<aside class="pf-card"><div class="pf-actions"><button type="button" data-pf="pin" aria-pressed="'+!!s.pinned+'">'+(s.pinned?'Открепить':'Закрепить')+'</button><button type="button" data-pf="next"'+(s.busy?' disabled':'')+'>Следующее изменение →</button></div>'+
+      '<header class="pf-header"><button type="button" data-pf="close">← '+(s.demo?'К обсерватории':'К планете')+'</button><div class="pf-heading"><span>'+escapeHtml((world.seed||'Мир')+location)+'</span><h2>'+escapeHtml(label)+'</h2></div><div class="pf-year">Год <strong>'+escapeHtml(year ?? '—')+'</strong><small>'+(year === live ? (s.demo?'Год примера':'Настоящее') : 'Исторический срез · последнее наблюдение '+escapeHtml(live))+'</small></div></header>'+
+      '<div class="pf-main"><div class="pf-land"><div class="pf-scene"><div class="pf-canvas-slot"></div></div>'+
+      '<div class="pf-scene-bar">'+sceneControls()+'<p>'+escapeHtml(sceneCaption(s))+'</p></div></div>'+
+      '<aside class="pf-card">'+objectCard(s,records)+'<div class="pf-actions"><button type="button" data-pf="pin" aria-pressed="'+!!s.pinned+'">'+(s.pinned?'Открепить':'Закрепить')+'</button><button type="button" data-pf="next"'+(s.busy?' disabled':'')+'>Следующее изменение →</button></div>'+
       (s.message?'<p class="pf-message" role="status">'+escapeHtml(s.message)+'</p>':'')+recordMarkup(record, s)+
       '<div class="pf-date"><label>Сравнить с годом <select data-pf="compare-year">'+options+'</select></label><button type="button" data-pf="goto-year"'+(compareYear===year || s.busy?' disabled':'')+'>Показать '+escapeHtml(compareYear)+'</button></div>'+
       '<div class="pf-archive"><h4>История до '+escapeHtml(year ?? '—')+' года</h4><ol>'+list+'</ol>'+more+'</div></aside></div></section>';
@@ -88,10 +109,20 @@ const PlaceFocus = (() => {
     }
   }
   function click(event) {
+    if(event.target===canvas){
+      const rect=canvas.getBoundingClientRect();
+      const picked=PlaceLandscape.pick(canvas,event.clientX-rect.left,event.clientY-rect.top);
+      if(picked && (state().settlement?.objects||[]).some(o=>o.id===picked.id)){
+        selectedObject=picked.id;selectedAnchor=picked.anchor;render();
+      }
+      return;
+    }
     const button = event.target.closest('[data-pf]');
     if (!button || !host?.contains(button) || button.tagName === 'SELECT') return;
     const action = button.dataset.pf, s = state();
-    if (action === 'record') {selected = button.dataset.id; sourceOpen = false; render();}
+    if (action === 'detail') {detail=button.dataset.id==='district'?'district':'region';render();}
+    else if (action === 'signals') {signals=!signals;render();}
+    else if (action === 'record') {selected = button.dataset.id; sourceOpen = false; render();}
     else if (action === 'project') {const record = projectRecord(s, visibleRecords(s)); if (record) {selected = record.id; sourceOpen = false; render(); host.querySelector('.pf-record')?.scrollIntoView({block:'nearest'});}}
     else if (action === 'source') {sourceOpen = !sourceOpen; render();}
     else if (action === 'more') {historyLimit += 20; render();}
@@ -104,6 +135,11 @@ const PlaceFocus = (() => {
     else if (['close','next','pin'].includes(action)) controls.onAction(action);
   }
   function change(event) {
+    if(event.target.dataset.pf==='object'){
+      selectedObject=(state().settlement?.objects||[]).find(o=>o.id===event.target.value)?.id||null;
+      selectedAnchor=null;
+      render();return;
+    }
     if (event.target.dataset.pf !== 'compare-year') return;
     const year = Number(event.target.value);
     if (availableYears(state()).includes(year)) {compareYear = year; render();}
@@ -111,7 +147,11 @@ const PlaceFocus = (() => {
   function open(node, api) {
     if (host) close();
     host = node; controls = api; selected = null; selectedYear = undefined; sourceOpen = false; historyLimit = 5; compareYear = null; sceneKey = ''; previousFocus = document.activeElement;
-    canvas = document.createElement('canvas'); canvas.setAttribute('aria-label','Реконструкция выбранного места');
+    const initial=state();
+    selectedObject=initial.settlement?.objects.find(o=>o.kind===initial.focusKind)?.id||null;
+    detail=selectedObject && initial.focusKind!=='terrain'?'district':'region';
+    signals=false;selectedAnchor=null;
+    canvas = document.createElement('canvas'); canvas.setAttribute('aria-label','Вид выбранного места. Объекты также доступны в списке под названием «Объект на местности».');
     host.addEventListener('click', click); host.addEventListener('change', change); render();
     if (typeof ResizeObserver !== 'undefined') {observer = new ResizeObserver(() => drawScene()); observer.observe(canvas);}
     host.querySelector('[data-pf="close"]')?.focus({preventScroll:true});

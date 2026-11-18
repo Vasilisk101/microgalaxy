@@ -11,7 +11,7 @@ export function GET(request: Request) {
       'Cache-Control': 'private, no-store, max-age=0',
       'X-Content-Type-Options': 'nosniff',
       'Referrer-Policy': 'no-referrer',
-      'X-Microgalaxy-Version': oldLink ? '0.5.0' : '1.2.0',
+      'X-Microgalaxy-Version': oldLink ? '0.5.0' : '1.3.0',
     },
   });
 }
