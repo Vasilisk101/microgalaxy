@@ -1,0 +1,21 @@
+/* Colour and typography of the selected night observatory, across all its screens. */
+:root{--night:#081018;--night-panel:#0c1821;--night-line:#304855;--night-ink:#eaf5fd;--night-secondary:#adc2cf;--night-active:#94e6de;color-scheme:dark}
+body{padding:0;background:var(--night);color:var(--night-ink);font-family:SignalDisplay,"Segoe UI",sans-serif}
+body>.top,body>.tabs,body>.controls,body>main,body>.dev-banner{background:var(--night-panel);border-color:var(--night-line)}
+body>.top{padding-inline:clamp(12px,2vw,36px);color:var(--night-ink)}
+body>.dev-banner{display:flex;align-items:center;justify-content:space-between;min-height:40px;padding:0 clamp(12px,2vw,36px);color:var(--night-secondary);border-bottom:1px solid var(--night-line)}
+body>.dev-banner b{color:var(--night-ink);margin-right:14px}
+.field-tools{display:flex;align-items:center;gap:10px}.field-tools button{border:0;min-height:40px;background:transparent;color:var(--night-active);padding:5px 10px}
+body:has(main.empty-world) .field-tools,body:has(main.empty-world) [data-edition="open"],body:has(main.empty-world) [data-branches="open"]{display:none}
+body>main{padding:8px;background:var(--night)}
+.top-actions .utility-menu>div,.time-menu{background:var(--night-panel);color:var(--night-ink);border:1px solid var(--night-line)}
+.top-actions .utility-menu>div button{color:var(--night-ink)}.top-actions .utility-menu>div button:hover{background:#23404e!important}
+.visual .scene-heading{background:linear-gradient(90deg,#0b1a24ed,#0b1a24c9);border-left:2px solid var(--night-active)}
+.visual .scene-heading .eyebrow{letter-spacing:.08em;color:#afd6dc}
+.brand svg{color:var(--night-active)}
+button:focus-visible,select:focus-visible,dialog :focus-visible,summary:focus-visible{outline:2px solid var(--night-active);outline-offset:2px}
+@media(min-width:851px){.top-actions .utility-menu [data-guide],.top-actions .utility-menu [data-edition],.top-actions .utility-menu [data-branches]{display:none}}
+@media(max-width:850px){body>.dev-banner{display:none}.top-actions #new-world{display:none}.top-actions .utility-menu>div{max-height:65vh;overflow-y:auto}.top-actions .utility-menu summary{min-height:44px}}
+@media(prefers-reduced-motion:reduce){.field-tools button,.top-actions button{transition:none}}
+.observer-modes{display:inline-flex;align-items:center;gap:2px;border-right:1px solid #526670;padding-right:5px;margin-right:2px}.observer-modes button[aria-pressed=true]{color:#11232b;background:#c7e8ea}.observation-drawer #signal-log{padding:5px 9px;border-bottom:1px solid var(--night-line)}#signal-log button{display:block;width:100%;text-align:left}
+@media(max-width:560px){.controls{display:flex;flex-wrap:wrap;align-items:stretch;gap:3px}.controls .clock{flex:1 0 66px}.controls #play{flex:1 1 92px}.controls #cycle-speed,.controls .next-event-direct,.controls .time-more{flex:0 1 auto}.controls .next-event-direct{font-size:12px;padding-inline:6px}.controls .time-more>summary{padding-inline:8px}}

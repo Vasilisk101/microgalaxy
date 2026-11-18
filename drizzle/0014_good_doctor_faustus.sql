@@ -1,0 +1,1 @@
+ALTER TABLE `retention_leases` ADD `version` text DEFAULT '' NOT NULL;

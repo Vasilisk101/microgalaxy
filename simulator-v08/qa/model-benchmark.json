@@ -1,0 +1,65 @@
+{
+  "final": true,
+  "status": "passed",
+  "seed": "long-run-08-final",
+  "era": "space",
+  "source_sha256": {
+    "core.mjs": "0d7b911637fbc3a71ee971328a8ab8d8e057a2c1dec7da4f34a8bec81ef3d13f",
+    "conflicts.mjs": "a4ab7a96cf93d0414e21606bc7ee6ca8b2518a9520ef542515fbc001a6f66610",
+    "economy.mjs": "faaa6e20622ce51b8c22ecff335ab71ec2d01dd48c586413801e6ecc5a45ff28",
+    "geography.mjs": "cf9baaf3be821b3513fd787e9c432fa5272293a6cf9e3665bf4a216d6f1892f9",
+    "archive.mjs": "5527a9e053d9c0e48a320b8165b00286c3bfd361a67e5f2823ed99f01852897a",
+    "societies.mjs": "917118c53bd28d8a75e865b3e7f890ec2f11baadb4623ea372cfe142e2ff55c3",
+    "knowledge.mjs": "32c5eb4ab44fa6fa639c1d638ce0d64505130f391cd922da83af50f804212b94"
+  },
+  "runs": [
+    {
+      "batch": 1000,
+      "year": 10000,
+      "bytes": 15409018,
+      "roundtrip": true,
+      "continuation": true,
+      "snapshots": 64,
+      "events": 3097,
+      "wars": 0,
+      "sha256": "465314d4f5c344fc3db9baf233c57b447c6e90db5592a41f85dfdf27ef675136",
+      "wall_ms": 199070,
+      "cpu_ms": 152126.908
+    },
+    {
+      "batch": 500,
+      "year": 10000,
+      "bytes": 15409018,
+      "roundtrip": true,
+      "continuation": true,
+      "snapshots": 64,
+      "events": 3097,
+      "wars": 0,
+      "sha256": "465314d4f5c344fc3db9baf233c57b447c6e90db5592a41f85dfdf27ef675136",
+      "wall_ms": 123100,
+      "cpu_ms": 127220.36
+    }
+  ],
+  "deterministic": true,
+  "environment": "Node shared test host, not phone/browser",
+  "verified_by": "root direct acceptance",
+  "restored_continuation": {
+    "status": "passed",
+    "fromYear": 1000,
+    "toYear": 1025,
+    "advanced": 25,
+    "roundtrip": true,
+    "identical": true
+  },
+  "notes": [
+    "The continuation=true fields in the 10000-year runs check stable behavior at the model's maximum year, not progress past the limit. Actual restored progress was independently checked from year1000 to1025.",
+    "Times were measured on a shared Node test host with concurrent tests; they are not browser or phone timings."
+  ],
+  "previous_unconfirmed_attempts": {
+    "session_ids": [
+      15824,
+      80259
+    ],
+    "reason": "Both exec session handles were unavailable when the agent resumed; no final output could be retrieved. No successful result is claimed."
+  }
+}
