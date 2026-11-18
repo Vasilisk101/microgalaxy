@@ -26,8 +26,8 @@ const ui=await read('./src/ui.js'), template=await read('./src/index.template.ht
 const observer=(await Promise.all(['renderer','observation','freight-observation'].map(f=>read('./src/'+f+'.js')))).join('\n');
 const journal=await modules([['ObservationJournal','./src/observation-journal.mjs','const {ROUTE_CLOSURES}=Economy;']]);
 const deviceCheck=await read('./src/device-session.js')+'\n'+await read('./src/device-check.js');
-const nextUI=(await Promise.all(['edition-ui.js','branches-ui.js','field-guide.js','signal-view.js','place-landscape.js','place-focus.js','place-visit.js'].map(f=>read(next+f)))).join('\n');
-const style=await read('./src/styles.css'), extraStyle=await read(next+'edition.css')+'\n'+await read(next+'night.css')+'\n'+await read(next+'place-focus.css')+'\n'+await read(next+'place-entry.css');
+const nextUI=(await Promise.all(['edition-ui.js','branches-ui.js','field-guide.js','signal-view.js','place-landscape.js','place-focus.js','place-visit.js','planet-optics.js','orbit-atlas.js','orbit-visit.js'].map(f=>read(next+f)))).join('\n');
+const style=await read('./src/styles.css'), extraStyle=await read(next+'edition.css')+'\n'+await read(next+'night.css')+'\n'+await read(next+'place-focus.css')+'\n'+await read(next+'place-entry.css')+'\n'+await read(next+'orbit-atlas.css');
 const stepWorker=await read('./src/worker.js');
 
 for(const v1 of [false,true]){
@@ -45,17 +45,17 @@ for(const v1 of [false,true]){
   const modelUI=v1?ui.replaceAll('microgalaxy_conflicts_v08_last','microgalaxy_observatory_v1_last')
     .replaceAll('microgalaxy:v08:sound','microgalaxy:v1:sound')
     .replaceAll('через меню «Файл»','через «Меню»')
-    .replaceAll('0.8 «Конфликты и новый порядок»','1.1 «Ночная орбита»'):ui;
+    .replaceAll('0.8 «Конфликты и новый порядок»','1.2 «Орбитальный атлас»'):ui;
   const app=retention+source+(v1?'const LegacyCore=createSimulation();const ReleasedCore=createSimulation({...Editions.edition,version:"1.0.0",acceptsModelVersion:v=>v==="1.0.0"});\n':'')
     +'const Storage='+wrap(storageSrc,'const {validateWorld,clone,SCHEMA,MODEL_VERSION,acceptsModelVersion}=Core;const {openRetentionDatabase,attachRetentionStore,writeRetentionMetadata,withBranchQuota}=Retention;')+';\n'
     +'const Cloud='+wrap(cloudSrc,'const {validateWorld,clone}=Core;const {retentionHeaders,releaseCloudWorld,rememberCloudLease}=RetentionClient;const {MAX_FILE_BYTES,ensureSaveSize}=Storage;')+';\n'
-    +journal+observer+'\n'+(v1?places+nextUI:'')+'\n'+deviceCheck+'\n'+modelUI+(v1?'\nPlaceVisit.attach();':'');
-  const page=v1?template.replace('0.8 — Конфликты и новый порядок','1.1 — Ночная орбита')
-    .replace('0.8 · Конфликты и новый порядок','1.1 · Ночная орбита')
-    .replace('История обществ одной звёздной системы</span></div>', 'История обществ одной звёздной системы</span><nav class="field-tools" aria-label="Инструменты наблюдателя"><button data-place-open>Место крупным планом</button></nav></div>')
-    .replace('<dialog id="dialog"', '<dialog id="place-dialog" class="place-dialog" aria-label="Место и его хроника"></dialog><dialog id="dialog"')
+    +journal+observer+'\n'+(v1?places+nextUI:'')+'\n'+deviceCheck+'\n'+modelUI+(v1?'\nPlaceVisit.attach();OrbitVisit.attach();':'');
+  const page=v1?template.replace('0.8 — Конфликты и новый порядок','1.2 — Орбитальный атлас')
+    .replace('0.8 · Конфликты и новый порядок','1.2 · Орбитальный атлас')
+    .replace('История обществ одной звёздной системы</span></div>', 'История обществ одной звёздной системы</span><nav class="field-tools" aria-label="Инструменты наблюдателя"><button data-orbit-open="system">Орбитальный атлас</button><button data-orbit-open="surface">Поверхность</button><button data-place-open>Место крупным планом</button></nav></div>')
+    .replace('<dialog id="dialog"', '<dialog id="orbit-dialog" class="orbit-dialog" aria-label="Орбитальный атлас"></dialog><dialog id="place-dialog" class="place-dialog" aria-label="Место и его хроника"></dialog><dialog id="dialog"')
     .replace('<div class="scene-note"', '<button type="button" class="place-map-entry" data-place-open hidden>Приблизить место ↗</button><div class="scene-note"')
-    .replace('<button id="sound"', '<button data-place-sample="meander">Открыть МЕАНДР-19</button><button data-place-sample="basin">Открыть BASIN-6</button><button id="sound"')
+    .replace('<button id="sound"', '<button data-orbit-sample="callisto">Орбиты · Каллисто</button><button data-orbit-sample="perseids">Орбиты · Персеиды</button><button data-place-sample="meander">Открыть МЕАНДР-19</button><button data-place-sample="basin">Открыть BASIN-6</button><button id="sound"')
     .replace('<div class="layers">','<div class="layers"><span class="observer-modes" role="group" aria-label="Режим наблюдения"><button data-observer-mode="optical" aria-pressed="false">◉ Оптика</button><button data-observer-mode="signals" aria-pressed="true">◇ Сигналы</button></span>')
     .replace('<section id="observation-panel"', '<details id="signal-log" hidden></details><section id="observation-panel"')
     .replace('<button id="next-event">До события</button>','')

@@ -512,7 +512,7 @@ function selectRecord(record){
   selectedRegion=null;regionSociety='all';regionKind='all';regionQuery='';regionLimit=60;displayedCache=null;filterSociety='all';filterType='all';filterQuery='';eventLimit=160;storySociety='all';storyQuery='';storyLimit=40;diplomacySociety='all';diplomacyStatus='all';activeStory=null;
   localConflict=false;localUnsaved=false;snapshotIndex=null;selectedSociety=null;selectedPlanet=world.planets.find(p=>p.home).id;view='planet';renderer.cacheKey='';
   $('#dialog').close();$('#notice').hidden=true;pref('microgalaxy_conflicts_v08_last',world.id);
-  try{if(typeof PlaceVisit==='undefined'||!PlaceVisit.isDemoLink()){const url=new URL(window.location.href);url.searchParams.set('world',world.id);url.searchParams.delete('source');url.searchParams.delete('archive');window.history.replaceState(null,'',catalogModels[activeModel].path+url.search+url.hash);}}catch{}
+  try{if(!hasGalleryLink()){const url=new URL(window.location.href);url.searchParams.set('world',world.id);url.searchParams.delete('source');url.searchParams.delete('archive');window.history.replaceState(null,'',catalogModels[activeModel].path+url.search+url.hash);}}catch{}
 restoreObservations(world,revision);showSaveStatus();render();setRunning(false);
 }
 async function transition(action){
@@ -710,7 +710,7 @@ async function exportCurrent(){
   catch(error){if(error.code!=='SAVE_SIZE_LIMIT')throw error;sizeLimitWorld=world.id;showSizeLimit();showSaveStatus();updateControls();}
 }
 document.addEventListener('click',async e=>{
-  if(e.target.closest('#place-dialog'))return;
+  if(e.target.closest('#place-dialog,#orbit-dialog'))return;
   const catalogLink=e.target.closest('[data-catalog-open]');
   if(catalogLink){e.preventDefault();const model=catalogLink.dataset.catalogOpen,id=catalogLink.dataset.worldId,source=catalogLink.dataset.source;if(!catalogModels[model]||!id||!['local','cloud'].includes(source))return;try{await transition(async()=>{if(model===activeModel){if(source==='local')await openLocal(id,{refresh:false});else await openCloud(id);}else{if(world)await persist();window.location.assign(modelPath(model,id,source));}});}catch(error){notice(error.message,error.name==='ConflictError');}return;}
   const archiveLink=e.target.closest('[data-open-archive]');
@@ -732,7 +732,7 @@ document.addEventListener('click',async e=>{
     else if(b.dataset.retentionPin){await retentionChange(b.dataset.retentionPin,'pin',{model:b.dataset.model,id:b.dataset.worldId,pinned:b.dataset.pinned==='true'});}
     else if(b.dataset.retentionLimit){const scope=b.dataset.retentionLimit;await previewRetentionLimit(scope,Number($('#retention-limit-'+scope).value));}
     else if(b.dataset.passportTab){const key=b.dataset.passportTab;$('#dialog-body').querySelectorAll('[data-passport-tab]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.passportTab===key)));$('#dialog-body').querySelectorAll('[data-passport-panel]').forEach(x=>{x.hidden=x.dataset.passportPanel!==key;});}
-    else if(b.dataset.view){setRunning(false);if(view!==b.dataset.view)resetEconomyPages();view=b.dataset.view;$('#dialog').close();render();}
+    else if(b.dataset.view){setRunning(false);if(view!==b.dataset.view)resetEconomyPages();view=b.dataset.view;$('#dialog').close();render();if(view==='system'&&typeof OrbitVisit!=='undefined')OrbitVisit.open('system');}
     else if(b.dataset.planet){selectedPlanet=b.dataset.planet;view='planet';render();}
     else if(b.dataset.star){view='system';render();}
     else if(b.dataset.layer){layer=b.dataset.layer;if(layer==='routes'&&!selectedRegion){const w=displayed();selectedRegion=w.societies.find(s=>s.id===selectedSociety)?.capitalId??w.regions[0].id;}setRunning(false);render();}
@@ -810,8 +810,8 @@ document.addEventListener('change',e=>{
   if(observationChange(e.target))return;
   const id=e.target.id,value=e.target.value;
   if(id==='observation-journal-file'){const input=e.target;void importObservations(input.files?.[0]).catch(error=>notice(error.message)).finally(()=>{input.value='';});return;}
-  if(id==='mobile-view'){if(!world||!['planet','system','regions','economy','societies','diplomacy','stories','chronicle','analysis'].includes(value))return;setRunning(false);if(view!==value)resetEconomyPages();view=value;render();return;}
-  if(id==='mobile-object'){if(!world)return;const w=displayed();if(value==='system')view='system';else if(w.planets.some(p=>p.id===value)){selectedPlanet=value;view='planet';}else return;setRunning(false);render();return;}
+  if(id==='mobile-view'){if(!world||!['planet','system','regions','economy','societies','diplomacy','stories','chronicle','analysis'].includes(value))return;setRunning(false);if(view!==value)resetEconomyPages();view=value;render();if(view==='system'&&typeof OrbitVisit!=='undefined')OrbitVisit.open('system');return;}
+  if(id==='mobile-object'){if(!world)return;const w=displayed();if(value==='system')view='system';else if(w.planets.some(p=>p.id===value)){selectedPlanet=value;view='planet';}else return;setRunning(false);render();if(value==='system'&&typeof OrbitVisit!=='undefined')OrbitVisit.open('system');return;}
   if(id==='map-region'){if(value)showRegionMap(value,layer==='routes'?'routes':'settlements');else{selectedRegion=null;render();}return;}
   if(id==='catalog-model'){catalogModel=value;renderCatalogList();return;}
   if(['region-society','region-kind','region-order'].includes(id)){setRunning(false);if(id==='region-society')regionSociety=value;else if(id==='region-kind')regionKind=value;else regionOrder=value;regionLimit=60;renderRegionList();return;}
@@ -868,6 +868,7 @@ function requestedWorldFromUrl(){
 function showWelcome(){
   setRunning(false);$('#visual').hidden=true;$('#page-content').hidden=false;
   $('#page-content').innerHTML=pageHeading('Личная обсерватория','Создайте систему или продолжите наблюдение за сохранённым миром.')+(cloudIssue?'<p class="form-hint">Облачный архив: '+h(cloudIssue)+'</p>':'')+'<div class="dialog-actions"><button class="primary" id="welcome-create">Создать систему</button><button data-open-archive="all">Мои миры</button>'+(typeof fieldGuideClick==='function'?'<button data-guide="open">Куда посмотреть</button>':'')+'</div>';
+  if(typeof OrbitVisit!=='undefined')$('#page-content').insertAdjacentHTML('beforeend',OrbitVisit.entry());
   if(typeof PlaceVisit!=='undefined')$('#page-content').insertAdjacentHTML('beforeend',PlaceVisit.entry());
   $('#world-title').textContent='Мир не открыт';$('#year').textContent='—';showSaveStatus();
 }
@@ -922,9 +923,12 @@ async function boot(){
   if((openArchive||showModelChoice)&&!document.querySelector('#place-dialog[open]'))await worldDialog();
 }
 let observatoryStarted=false;
+function hasGalleryLink(){
+  return (typeof PlaceVisit!=='undefined'&&PlaceVisit.isDemoLink()) || (typeof OrbitVisit!=='undefined'&&OrbitVisit.isDemoLink());
+}
 function startObservatory(){
   if(observatoryStarted)return;
   observatoryStarted=true;
   return boot().catch(error=>{switching=false;setRunning(false);notice('Не удалось открыть обсерваторию: '+error.message);updateControls();});
 }
-if(typeof PlaceVisit==='undefined'||!PlaceVisit.isDemoLink())startObservatory();
+if(!hasGalleryLink())startObservatory();

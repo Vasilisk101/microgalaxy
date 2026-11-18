@@ -32,18 +32,25 @@ class Renderer {
       if(!pointers.has(e.pointerId))return;pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
       if(pointers.size>1){const next=distance();if(pinchDistance>0)this.zoom=Core.clamp(this.zoom*next/pinchDistance,.65,1.65);pinchDistance=next;moved=20;}
       else{const dx=e.clientX-lastX,dy=e.clientY-lastY;moved+=Math.hypot(dx,dy);this.rotation+=dx*.007;}
-      lastX=e.clientX;lastY=e.clientY;this.draw();
+      lastX=e.clientX;lastY=e.clientY;this.drawCamera();
     });
     canvas.addEventListener('pointerup',e=>{
       const click=pointers.size===1&&moved<8;pointers.delete(e.pointerId);pinchDistance=distance();
       if(click){const box=canvas.getBoundingClientRect(),x=e.clientX-box.left,y=e.clientY-box.top;const hit=this.hits.find(p=>Math.hypot(x-p.x,y-p.y)<p.r+8||(p.label&&x>=p.label.x&&x<=p.label.x+p.label.w&&y>=p.label.y&&y<=p.label.y+p.label.h));if(hit){if(hit.type==='society')this.onSociety?.(hit.id);else if(hit.type==='region')this.onRegion?.(hit.id);else this.onSelect(hit.id);}}
     });
     canvas.addEventListener('pointercancel',e=>{pointers.delete(e.pointerId);moved=20;});
-    canvas.addEventListener('wheel',e=>{e.preventDefault();this.zoom=Core.clamp(this.zoom-e.deltaY*.001,.65,1.65);this.draw();},{passive:false});
-    canvas.addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','+','=','-','0'].includes(e.key))return;e.preventDefault();if(e.key==='ArrowLeft')this.rotation-=.15;else if(e.key==='ArrowRight')this.rotation+=.15;else if(e.key==='0'){this.reset();return;}else this.zoom=Core.clamp(this.zoom+(e.key==='-'?-.1:.1),.65,1.65);this.draw();});
+    canvas.addEventListener('wheel',e=>{e.preventDefault();this.zoom=Core.clamp(this.zoom-e.deltaY*.001,.65,1.65);this.drawCamera();},{passive:false});
+    canvas.addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','+','=','-','0'].includes(e.key))return;e.preventDefault();if(e.key==='ArrowLeft')this.rotation-=.15;else if(e.key==='ArrowRight')this.rotation+=.15;else if(e.key==='0'){this.reset();return;}else this.zoom=Core.clamp(this.zoom+(e.key==='-'?-.1:.1),.65,1.65);this.drawCamera();});
     this.ro=new ResizeObserver(()=>this.draw());this.ro.observe(canvas);
   }
   update(world,mode,planet,layer,selectedSociety=null,selectedRegion=null,movements=[]){this.world=world;this.mode=mode;this.planet=planet;this.layer=layer;this.selectedSociety=selectedSociety;this.selectedRegion=selectedRegion;this.movements=movements;this.draw();}
+  drawCamera(){
+    if(typeof PlanetOptics==='undefined'||this.mode!=='planet'){this.draw();return;}
+    this.opticalMoving=true;
+    clearTimeout(this.opticalSettle);
+    if(!this.cameraFrame)this.cameraFrame=requestAnimationFrame(()=>{this.cameraFrame=0;this.draw();});
+    this.opticalSettle=setTimeout(()=>{this.opticalMoving=false;this.draw();},140);
+  }
   reset(){this.rotation=.25;this.zoom=1;this.draw();}
   setFreightRoute(route){this.freightRoute=route;this.draw();}
   focusSociety(id){const s=this.world?.societies.find(s=>s.id===id),r=s?this.world.regions.find(r=>r.id===s.capitalId):null;if(r){this.rotation=r.lon*Math.PI/180;this.selectedSociety=id;this.draw();}}
@@ -176,9 +183,8 @@ class Renderer {
     if(this.mode==='system')this.system(ctx,W,H);else this.globe(ctx,W,H);
   }
   project(region,cx,cy,R){const p=region.lat*Math.PI/180,l=region.lon*Math.PI/180-this.rotation;return {x:cx+Math.cos(p)*Math.sin(l)*R,y:cy-Math.sin(p)*R,z:Math.cos(p)*Math.cos(l)};}
-  globe(ctx,W,H){
+  paintMappedGlobe(ctx,cx,cy,R,political,regional){
     this.makeTexture();
-    const R=Math.min(W*.43,H*.44)*this.zoom,cx=W*.5,cy=H*.5,political=this.layer==='political'&&this.planet.home,regional=['settlements','routes'].includes(this.layer)&&this.planet.home;
     const sz=Math.min(600,Math.max(180,Math.ceil(R*2))),r=sz/2,off=this.globeCanvas??=document.createElement('canvas');if(off.width!==sz||off.height!==sz){off.width=sz;off.height=sz;this.globeImage=null;this.projectionKey='';}const o=off.getContext('2d'),img=this.globeImage??=o.createImageData(sz,sz),a=img.data,t=this.texture;
     const projectionKey=JSON.stringify([this.cacheKey,sz,this.rotation,political,regional]);
     if(projectionKey!==this.projectionKey){this.projectionKey=projectionKey;this.renderStats.projectionBuilds++;
@@ -189,6 +195,20 @@ class Renderer {
       for(let k=0;k<3;k++)a[di+k]=sampled[k]*shade+[29,50,58][k]*limb*.3;a[di+3]=255;
     }
     o.putImageData(img,0,0);}ctx.drawImage(off,cx-R,cy-R,R*2,R*2);
+  }
+  globe(ctx,W,H){
+    const R=Math.min(W*.43,H*.44)*this.zoom,cx=W*.5,cy=H*.5,political=this.layer==='political'&&this.planet.home,regional=['settlements','routes'].includes(this.layer)&&this.planet.home;
+    if(typeof PlanetOptics!=='undefined' && (this.layer==='nature'||!this.planet.home)){
+      const optical=this.opticalCanvas??=document.createElement('canvas');
+      PlanetOptics.draw(optical,this.world,this.planet,{
+        mode:'globe',width:W,height:H,dpr:Math.min(window.devicePixelRatio||1,1.5),lon:this.rotation,lat:0,zoom:this.zoom,
+        light:SpaceWorld.stellarLight(this.world,this.planet),moving:!!this.opticalMoving,
+        onDetail:()=>{if(this.mode==='planet')this.draw();}
+      });
+      ctx.drawImage(optical,0,0,W,H);
+    }else{
+      this.paintMappedGlobe(ctx,cx,cy,R,political,regional);
+    }
     if(this.planet.home){ctx.strokeStyle='rgba(153,186,188,.38)';ctx.lineWidth=1;ctx.beginPath();ctx.arc(cx,cy,R-.5,0,Math.PI*2);ctx.stroke();}
     if(!this.planet.home)return;
     if(!this.hideSignals){
@@ -299,10 +319,10 @@ class Renderer {
     const minA=Math.min(...planets.map(p=>p.a)),maxA=Math.max(...planets.map(p=>p.a)),span=Math.max(.001,Math.log(maxA/minA));
     ctx.save();ctx.strokeStyle='#43535a88';ctx.lineWidth=1;
     for(const p of planets){const r=35+(Math.log(p.a/minA)/span)*(Math.max(40,max)-35);ctx.beginPath();ctx.ellipse(cx,cy,r,r*.65,0,0,Math.PI*2);ctx.stroke();
-      const a=p.phase+this.world.year/Math.max(1,p.period)*.25,x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r*.65,rad=p.kind==='gas'?8:p.home?7:4;
+      const a=typeof SpaceWorld==='undefined'?p.phase+this.world.year/Math.max(1,p.period)*.25:SpaceWorld.orbitalPhase(p,this.world.year),x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r*.65,rad=p.kind==='gas'?8:p.home?7:4;
       positions.set(p.id,{x,y,rad});ctx.fillStyle=p.home?'#72a9b7':p.kind==='ice'?'#b4ced4':p.kind==='gas'?'#cfa873':'#9c8a78';ctx.beginPath();ctx.arc(x,y,rad,0,Math.PI*2);ctx.fill();label(p.name,x,y);this.hits.push({id:p.id,type:'planet',x,y,r:rad});
     }
     // Moons orbit the parent on screen; their display separation is schematic.
-    for(const p of planets){const parent=positions.get(p.id),moons=bodies.filter(m=>m.parentId===p.id);moons.forEach((moon,i)=>{const radius=20+i*9,angle=moon.phase+this.world.year/Math.max(.01,moon.orbit?.period??1)*.04,x=parent.x+Math.cos(angle)*radius,y=parent.y+Math.sin(angle)*radius;ctx.strokeStyle='#93adb466';ctx.lineWidth=.8;ctx.beginPath();ctx.arc(parent.x,parent.y,radius,0,Math.PI*2);ctx.stroke();ctx.fillStyle=moon.kind==='ice'?'#c9e1e4':'#b8aa9b';ctx.beginPath();ctx.arc(x,y,3.5,0,Math.PI*2);ctx.fill();label(moon.name,x,y);this.hits.push({id:moon.id,type:'planet',x,y,r:5});});}
+    for(const p of planets){const parent=positions.get(p.id),moons=bodies.filter(m=>m.parentId===p.id);moons.forEach((moon,i)=>{const radius=20+i*9,angle=typeof SpaceWorld==='undefined'?moon.phase+this.world.year/Math.max(.01,moon.orbit?.period??1)*.04:SpaceWorld.satellitePhase(moon,this.world.year),x=parent.x+Math.cos(angle)*radius,y=parent.y+Math.sin(angle)*radius;ctx.strokeStyle='#93adb466';ctx.lineWidth=.8;ctx.beginPath();ctx.arc(parent.x,parent.y,radius,0,Math.PI*2);ctx.stroke();ctx.fillStyle=moon.kind==='ice'?'#c9e1e4':'#b8aa9b';ctx.beginPath();ctx.arc(x,y,3.5,0,Math.PI*2);ctx.fill();label(moon.name,x,y);this.hits.push({id:moon.id,type:'planet',x,y,r:5});});}
     const g=ctx.createRadialGradient(cx,cy,2,cx,cy,38);g.addColorStop(0,'#fff1be');g.addColorStop(.28,'#ffcb80');g.addColorStop(1,'#f3a95300');ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,38,0,Math.PI*2);ctx.fill();ctx.fillStyle='#d6e2be';ctx.font='10px Consolas';ctx.fillText(W<500?'Выбор тела — список «Объект»':'Обзорный масштаб · расстояния спутников условны',20,H-22);ctx.restore();
   }}

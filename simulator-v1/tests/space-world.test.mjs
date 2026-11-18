@@ -3,6 +3,25 @@ import assert from 'node:assert/strict';
 import * as Core from '../../simulator-v08/src/core.mjs';
 import * as Space from '../src/space-world.mjs';
 const make=seed=>{const w=Core.createWorld(seed);Space.generateBodies(w);Space.initialize(w);return w;};
+test('atlas uses the simulation clock and the parent orbit for moonlight',()=>{
+ const world=make('КАЛЛИСТО'), moon=world.planets.find(p=>p.parentId);
+ const home=world.planets.find(p=>p.id===moon.parentId), year=5;
+ const turn=2*Math.PI;
+ assert.ok(Math.abs(Space.orbitalPhase(home,year+home.period)-Space.orbitalPhase(home,year)-turn)<1e-10);
+ assert.ok(Math.abs(Space.satellitePhase(moon,year+moon.orbit.period)-Space.satellitePhase(moon,year)-turn)<1e-10);
+ const light=Space.stellarLight(world,moon,year);
+ assert.deepEqual(light,Space.stellarLight(world,home,year));
+ assert.ok(Math.abs(Math.hypot(...light)-1)<1e-12);
+});
+test('gallery seeds expose different orbital families and lunar materials',()=>{
+ const compact=make('КАЛЛИСТО'), wide=make('ПЕРСЕИДЫ');
+ for(const [w,count,material,spacing] of [[compact,5,'ice',1.32],[wide,7,'rock',1.85]]){
+   const primaries=w.planets.filter(p=>!p.parentId);
+   assert.equal(primaries.length,count);
+   assert.equal(w.planets.find(p=>p.parentId)?.kind,material);
+   assert.ok(Math.abs(primaries[1].a/primaries[0].a-spacing)<1e-10);
+ }
+});
 function fixture(){
  let w;for(let i=0;i<40;i++){w=make('space-fixture-'+i);if(w.planets.some(p=>p.parentId&&p.parentId===w.planets.find(q=>q.home).id))break;}
  const home=w.planets.find(p=>p.home),moon=w.planets.find(p=>p.parentId===home.id),region=w.regions.find(r=>r.population>500),soc=w.societies.find(s=>s.id===region.owner),people=100;

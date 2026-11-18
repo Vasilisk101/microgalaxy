@@ -37,11 +37,18 @@ export function initialize(w){
  ColonialExchange.initialize(w);
 }
 function starOrbit(w,p){return p.parentId?byId(w,p.parentId):p;}
+// Radians in the viewing plane. The same positions govern observation and launch windows.
+export function orbitalPhase(body,year){return body.phase+2*Math.PI*year/Math.max(.1,body.period);}
+export function satellitePhase(moon,year){return moon.phase+2*Math.PI*year/Math.max(.001,moon.orbit?.period??1);}
+export function stellarLight(world,body,year=world.year){
+ const angle=orbitalPhase(starOrbit(world,body),year), inclination=.68;
+ return [-Math.cos(angle),inclination*Math.sin(angle),-Math.sqrt(1-inclination**2)*Math.sin(angle)];
+}
 export function distance(w,fromId,toId){const a=byId(w,fromId),b=byId(w,toId);if(!a||!b)throw Error('Неизвестное тело.');if(a.id===b.id)return 0;if(a.parentId===b.id||b.parentId===a.id)return (a.orbit?.distance??b.orbit?.distance??.005);const x=starOrbit(w,a),y=starOrbit(w,b);return Math.abs(x.a-y.a)+(a.orbit?.distance??0)+(b.orbit?.distance??0);}
 export function launchWindow(w,fromId,toId,year=w.year){
  const a=byId(w,fromId),b=byId(w,toId);if(!a||!b||a.id===b.id)return false;
  if(a.parentId===b.id||b.parentId===a.id)return true;
- const x=starOrbit(w,a),y=starOrbit(w,b),angle=p=>p.phase+2*Math.PI*year/Math.max(.1,p.period);
+ const x=starOrbit(w,a),y=starOrbit(w,b),angle=p=>orbitalPhase(p,year);
  const delta=Math.atan2(Math.sin(angle(x)-angle(y)),Math.cos(angle(x)-angle(y)));
  return Math.abs(delta)<.8;
 }
